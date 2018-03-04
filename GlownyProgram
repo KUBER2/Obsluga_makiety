@@ -1,18 +1,26 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 #include "DHT.h"
+#include <SPI.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BMP280.h>
 
-#define DHTPIN 8 //ustawiam port na ktorym bedzie podlaczony czujnik
+#define DHTPIN 7 //ustawiam port na ktorym bedzie podlaczony czujnika DTH
 #define DHTTYPE DHT22 //definiuje rodzaj czujnika
+#define BMP_SCK 13
+#define BMP_MISO 12
+#define BMP_MOSI 11 
+#define BMP_CS 10
 
 LiquidCrystal_I2C lcd1(0x27,16,2);  // Ustawienie wyścietlacza 1 jego adresu i wilkości
 LiquidCrystal_I2C lcd2(0x24,16,2);  // Ustawienie wyścietlacza 2 jego adresu i wilkości
 DHT dht(DHTPIN, DHTTYPE);  // utworzenie obiektu dth do obslugi czujnika
+Adafruit_BMP280 bmp;
 
-float humP,tempC;
-const int przek2 =  11;
-const int wentylator =  10;
-
+float humP,tempC,tempBar,presBar;
+//Ustawienie na ktorych portach podlaczone sa przekazniki do wlaczenia/wylacznia urzadzen
+const int wentylator = 8;
+const int gralka1 =  9;
 
 
 //blok deklaracji funkcji
@@ -21,7 +29,9 @@ void wyswietlTemperature(float T);
 void wyswietlWilgotnosc(float H);
 void sprawdzenieOdczytow(float h, float t);
 void pobierzParametry (float& h, float& t);
+void pobierzParametry4 (float& h, float& t1,float& p, float& t2);
 void wyswietlParametry(float T,float H);
+void wyswietlParametry4(float& h, float& t1,float& p, float& t2);
 
 void setup()
 {
@@ -43,9 +53,13 @@ void loop()
 {
   
   delay(2000);  
+  /*
   pobierzParametry (humP, tempC); 
   sprawdzenieOdczytow(humP, tempC);
   wyswietlParametry(humP, tempC);
+  */
+  pobierzParametry4 (humP, tempC ,presBar, tempBar);
+  wyswietlParametry4(humP, tempC ,presBar, tempBar);
   
   if (humP>50) {
       digitalWrite(wentylator, LOW);
@@ -54,7 +68,6 @@ void loop()
     }
   
 }
-
 
 
 
@@ -79,6 +92,12 @@ void wyswietlPowitanie(){
   lcd2.clear();
   lcd2.setCursor(0,0);
   lcd2.print("Witaj");
+  if (!bmp.begin()) {  
+    lcd2.setCursor(0,0);
+    lcd2.print("BMP280 sensor");
+    lcd2.setCursor(0,1);
+    lcd2.print("NIE dziala");    
+  }
   delay(3000);
   
 }
@@ -107,9 +126,27 @@ void pobierzParametry (float& h, float& t){
   Serial.print("Temperature: ");
   Serial.print(t);
   Serial.print(" *C ");
-
-  
 }
+
+//funkcja do pobierania paramtrwo z czujnika DTH22 i BMP280
+void pobierzParametry4 (float& h, float& t1,float& p, float& t2){
+  // odczyt parametrow zajmuje okolo cwierc sekundy, moze potrwac nawet do 2 sekund Reading temperature or humidity takes about 250 milliseconds!
+  h = dht.readHumidity(); // odczytuje wilgotnosc
+  t1 = dht.readTemperature(); //odczytuje temperature Read temperature as Celsius (the default)
+  p = bmp.readPressure();
+  t2 = bmp.readTemperature();
+  
+  /* // Sekcja wysylania danych przez port szeregowy
+  Serial.print("\nHumidity: ");
+  Serial.print(h);
+  Serial.print(" %\t");
+  Serial.print("Temperature: ");
+  Serial.print(t);
+  Serial.print(" *C ");
+  */
+}
+
+
 void sprawdzenieOdczytow(float h, float t){
   if (isnan(h) || isnan(t) ) {
     lcd1.clear();
@@ -129,5 +166,27 @@ void wyswietlParametry(float H, float T){
   lcd1.print("Wilgot: ");
   lcd1.print(H);
   lcd1.print(" %");
-  
+}
+void wyswietlParametry4(float& h, float& t1,float& p, float& t2){
+  //wyswietlanie na wyswietlaczy LCD1
+  //lcd1.clear();
+  lcd1.setCursor(0,0);
+  lcd1.print("Temp: ");
+  lcd1.print(t1);
+  lcd1.print("*C");
+  lcd1.setCursor(0,1);
+  lcd1.print("Wilgot: ");
+  lcd1.print(h);
+  lcd1.print(" %");
+
+  //wyswietlanie na wyswietlaczy LCD2
+  //lcd2.clear();
+  lcd2.setCursor(0,0);
+  lcd2.print("Temp: ");
+  lcd2.print(t2);
+  lcd2.print("*C");
+  lcd2.setCursor(0,1);
+  lcd2.print("Cis: ");
+  lcd2.print(p);
+  lcd2.print("Pa");
 }
